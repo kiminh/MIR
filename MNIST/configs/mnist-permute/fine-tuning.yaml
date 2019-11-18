@@ -1,0 +1,15 @@
+SYSTEM:
+  EXP_NAME: 'permute-fine-tuning'
+  SEED: 56
+DATA:
+  TRAIN:
+    ROOT: './torch_data/mnist/permute/train.pt'
+  TEST:
+    ROOT: './torch_data/mnist/permute/test.pt'
+SOLVER:
+  NUM_TASKS: 10
+  BATCH_SIZE: 10
+  NUM_EPOCHS: 1
+OPTIMIZER:
+  LR: 0.05
+  MOMENTUM: 0.09

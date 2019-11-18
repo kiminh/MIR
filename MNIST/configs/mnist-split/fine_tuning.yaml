@@ -1,0 +1,10 @@
+SYSTEM:
+  EXP_NAME: 'split-fine-tuning'
+  SEED: 56
+SOLVER:
+  NUM_TASKS: 5
+  BATCH_SIZE: 10
+  NUM_EPOCHS: 1
+OPTIMIZER:
+  LR: 0.05
+  MOMENTUM: 0.09
