@@ -9,13 +9,13 @@ class Buffer:
     def __init__(self, cfg):
         self.size = cfg.BUFFER.SIZE
         self.C = cfg.BUFFER.C
-        self.memory_x = torch.zeros((self.size, cfg.MODEL.MLP.INPUT_SIZE))
-        self.memory_y = torch.zeros((self.size, 1), dtype=torch.long)
+        self.memory = []
         self.loss = defaultdict(lambda:1e+6)
         self.num_seen = 0
-        self.task_count = 0
+        self.num_tasks = cfg.SOLVER.NUM_TASKS
+        self.num_cls = cfg.DATA.NUM_CLASSES
 
-    def fill(self, x, y, loss):
+    def fill(self, x, y, loss=None, tid=None):
         """
         Reservoir Sampling for selecting which tensor make it
         into the memory buffer. Here we use id function for
@@ -27,28 +27,35 @@ class Buffer:
         y: [None, tensor], Batch of tensor labels
         loss: [None, tensor], Loss associated with each tensor data value
         """
-        loss = loss.detach()
+        if tid is not None:
+            mult = self.num_cls / self.num_tasks
+            self.eff_size = (tid+1) * int(mult*(self.size / (self.num_cls)))
+        if loss:
+            loss = loss.detach()
         for i in range(0, x.shape[0]):
-            if len(self.loss) < self.size:
-                self.memory_x[i] = x[i]
-                self.memory_y[i] = y[i]
-                self.loss[id(x[i])] = min(self.loss[id(x[i])], loss[i])
-            else:
-                if np.random.randint(0, self.num_seen + i) < len(self.loss):
-                    self.memory_x[i] = x[i]
-                    self.memory_y[i] = y[i]
+            if len(self.memory) < self.eff_size:
+                self.memory.append((x[i], y[i]))
+                if loss:
                     self.loss[id(x[i])] = min(self.loss[id(x[i])], loss[i])
-            self.num_seen += 1
+            else:
+                if np.random.randint(0, self.num_seen + i) < len(self.memory):
+                    self.memory[i] = (x[i], y[i])
+                if loss:
+                    self.loss[id(x[i])] = min(self.loss[id(x[i])], loss[i])
 
     def sample(self):
-        if len(self.loss) == 0:
-            return None # Empty Memory, Indicates first task
-        idx = torch.randperm(self.size)[:self.C]
-        loss_keys = [id(x) for x in self.memory_x[idx]]
-        loss_idx = list(itemgetter(*loss_keys)(self.loss))
-        return self.memory_x[idx], self.memory_y[idx], loss_idx
+        if len(self.memory) == 0:
+            return None
+        idx = torch.randperm(len(self.memory))[:self.C].tolist()
+        mem_sampled = [self.memory[i] for i in idx]
+        if len(self.loss)==0:
+            return mem_sampled, -1
+        else:
+            loss_keys = [id(x) for x in self.memory[idx][0]]
+            loss_idx = list(itemgetter(*loss_keys)(self.loss))
+            return mem_sampled, loss_idx
 
     def reset(self):
-        self.memory = np.zeros(self.size)
+        self.memory = []
         self.best_loss = defaultdict(np.inf)
         self.num_seen = 0
