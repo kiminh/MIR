@@ -66,7 +66,7 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
 
 def test(cfg, model, logger, writer, metrics, tid_done):
     model.eval()
-    criterion = BCEauto(reduction='mean')
+    criterion = torch.nn.CrossEntropyLoss()
     test_loaders = [(tid, get_loader(cfg, False, tid)) for tid in range(tid_done+1)]
     avg_meter = AverageMeter()
     for tid, test_loader in test_loaders:
