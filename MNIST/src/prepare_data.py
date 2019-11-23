@@ -9,6 +9,7 @@ import argparse
 import random
 import numpy as np
 from utils.utils import set_seed
+import tqdm
 
 
 def save_permuted_dataset():
@@ -23,7 +24,7 @@ def save_permuted_dataset():
     y_tr = y_tr.view(-1).long()
     y_te = y_te.view(-1).long()
 
-    for tid in range(cfg.SOLVER.NUM_TASKS):
+    for tid in tqdm.tqdm(range(cfg.SOLVER.NUM_TASKS), total=cfg.SOLVER.NUM_TASKS):
         p = torch.randperm(x_tr.size(1)).long().view(-1)
         train_data[tid] = (x_tr.index_select(1, p), y_tr)
         test_data[tid] = (x_te.index_select(1, p), y_te)
@@ -45,6 +46,7 @@ def save_split_dataset():
 
     num_classes = cfg.DATA.NUM_CLASSES
     s_cls = torch.arange(num_classes)
+    for tid in tqdm.tqdm(range(cfg.SOLVER.NUM_TASKS), total=cfg.SOLVER.NUM_TASKS):
         n_labels = cfg.DATA.NUM_CLASSES // cfg.SOLVER.NUM_TASKS
         cids = s_cls[tid*n_labels: (tid+1)*n_labels]
         idx_tr = []
