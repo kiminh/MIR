@@ -6,7 +6,7 @@ class Metrics:
         self.acc = torch.zeros(num_tasks, num_tasks)
         self.forget = torch.zeros(num_tasks, num_tasks)
 
-    def accuracy(self, tid, tid_done, pred, y, avg_meter):
+    def accuracy(self, tid, tid_done, pred, y):
         self.acc[tid_done, tid]+=pred.eq(y.view_as(pred)).sum().item()
 
     def avg_accuracy(self, tid, tid_done, val):
