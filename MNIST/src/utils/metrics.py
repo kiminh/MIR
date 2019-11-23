@@ -30,4 +30,10 @@ class Metrics:
 
 
 if __name__ == "__main__":
-    pass
+    metrics = Metrics(4)
+    y = torch.tensor([1, 0, 2, 4])
+    pred = torch.tensor([2, 0, 2, 4])
+    tid_done = 3
+    for tid in range(4):
+        metrics.accuracy(tid, 3, pred, y)
+    print(metrics.acc)
