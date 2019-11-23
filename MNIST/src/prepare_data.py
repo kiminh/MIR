@@ -6,6 +6,8 @@ from config import cfg
 import os.path
 import torch
 import argparse
+import random
+import numpy as np
 from utils.utils import set_seed
 
 
@@ -42,8 +44,7 @@ def save_split_dataset():
     y_te = y_te.view(-1).long()
 
     num_classes = cfg.DATA.NUM_CLASSES
-    s_cls = torch.randperm(num_classes)
-    for tid in range(cfg.SOLVER.NUM_TASKS):
+    s_cls = torch.arange(num_classes)
         n_labels = cfg.DATA.NUM_CLASSES // cfg.SOLVER.NUM_TASKS
         cids = s_cls[tid*n_labels: (tid+1)*n_labels]
         idx_tr = []
@@ -68,7 +69,14 @@ if __name__ == "__main__":
     opts = ['SOLVER.NUM_TASKS', args.n_task, 'DATA.SAVE_FILE', args.save_file]
     cfg.merge_from_list(opts)
     cfg.freeze()
-    set_seed(cfg)
+    # set_seed(cfg)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    seed = 0
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.manual_seed(seed)
     if args.d_type == 'permute':
         save_permuted_dataset()
     else:
