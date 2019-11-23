@@ -66,7 +66,7 @@ def test(cfg, model, logger, writer, metrics, tid_done):
             output = model(x)
             test_loss = criterion(output, y)
             pred = output.argmax(dim=1, keepdim=True)
-            acc = metrics.accuracy(tid, tid_done, pred, y)
+            metrics.accuracy(tid, tid_done, pred, y)
         metrics.avg_accuracy(tid, tid_done, len(test_loader.dataset))
         metrics.forgetting(tid, tid_done)
     # print(metrics.acc)
