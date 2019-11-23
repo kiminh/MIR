@@ -12,6 +12,30 @@ from utils.utils import set_seed
 import tqdm
 
 
+def save_cifar_dataset():
+    train_data = {}
+    test_data = {}
+
+    x_tr, y_tr, x_te, y_te = torch.load(os.path.join(cfg.DATA.ROOT, 'cifar10.pt'))
+    x_tr = x_tr.float().view(x_tr.size(0), -1) / 255.0
+    x_te = x_te.float().view(x_te.size(0), -1) / 255.0
+
+    num_classes = cfg.DATA.NUM_CLASSES
+    s_cls = torch.randperm(num_classes)
+    for tid in tqdm.tqdm(range(cfg.SOLVER.NUM_TASKS), total=cfg.SOLVER.NUM_TASKS):
+        n_labels = cfg.DATA.NUM_CLASSES // cfg.SOLVER.NUM_TASKS
+        cids = s_cls[tid*n_labels: (tid+1)*n_labels]
+        idx_tr = []
+        idx_te = []
+        for cid in cids:
+            idx_tr.extend(torch.nonzero(y_tr == cid).view(-1))
+            idx_te.extend(torch.nonzero(y_te==cid).view(-1))
+        train_data[tid] = (x_tr[idx_tr], y_tr[idx_tr])
+        test_data[tid] = (x_te[idx_te], y_te[idx_te])
+
+    torch.save(train_data, cfg.DATA.SAVE_FILE + 'train.pt')
+    torch.save(test_data, cfg.DATA.SAVE_FILE + 'test.pt')
+
 def save_permuted_dataset():
     train_data = {}
     test_data = {}
