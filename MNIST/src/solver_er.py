@@ -24,6 +24,10 @@ def get_counts(mem):
     unique, counts = np.unique(y, return_counts=True)
     return dict(zip(unique, counts))
 
+def get_counts_labels(y):
+    y = y.numpy()
+    unique, counts = np.unique(y, return_counts=True)
+    return dict(zip(unique, counts))
 
 def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
     criterion =  torch.nn.CrossEntropyLoss()
@@ -57,7 +61,8 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
             mem.num_seen += batch_size
             if batch_idx % cfg.SYSTEM.LOG_FREQ==0:
                 logger.debug(f'Batch Id:{batch_idx}, Average Loss:{avg_loss.avg}')
-                print(f'Memory:{get_counts(mem.memory)},\
+                print(f'Labels: {get_counts_labels(y)},\
+                        Memory: {get_counts(mem.memory)},\
                         Eff Size: {mem.eff_size},\
                         Memory Size: {len(mem.memory)},\
                         Num Seen:{mem.num_seen}')
