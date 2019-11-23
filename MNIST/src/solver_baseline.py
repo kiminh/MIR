@@ -22,9 +22,9 @@ device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
 
 def train(cfg, model, train_loader, tid, logger, writer, metrics):
     model.train()
-    optimizer = optim.SGD(model.parameters(), lr = cfg.OPTIMIZER.LR, momentum = cfg.OPTIMIZER.MOMENTUM)
+    optimizer = optim.SGD(model.parameters(), lr = cfg.OPTIMIZER.LR)
     mem = Buffer(cfg)
-    criterion = BCEauto(reduction='mean')
+    criterion = torch.nn.CrossEntropyLoss()
     avg_loss = AverageMeter()
     batch_size = cfg.SOLVER.BATCH_SIZE
     num_batches = cfg.DATA.TRAIN.NUM_SAMPLES // batch_size
@@ -54,7 +54,7 @@ def train(cfg, model, train_loader, tid, logger, writer, metrics):
 
 def test(cfg, model, logger, writer, metrics, tid_done):
     model.eval()
-    criterion = BCEauto(reduction='mean')
+    criterion = torch.nn.CrossEntropyLoss()
     test_loaders = [(tid, get_loader(cfg, False, tid)) for tid in range(tid_done+1)]
     avg_meter = AverageMeter()
     for tid, test_loader in test_loaders:
