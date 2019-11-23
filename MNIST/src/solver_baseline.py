@@ -18,6 +18,7 @@ from utils.loss import BCEauto
 from utils.utils import AverageMeter, save_config
 from utils.metrics import Metrics
 
+device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
 
 def train(cfg, model, train_loader, tid, logger, writer, metrics):
     model.train()
@@ -33,6 +34,8 @@ def train(cfg, model, train_loader, tid, logger, writer, metrics):
             writer_idx = batch_idx * batch_size + (epoch_idx * num_batches * batch_size)
             x, y = data
             x = x.view(min(x.shape[0], cfg.SOLVER.BATCH_SIZE), -1)
+            x = x.to(device)
+            y = y.to(device)
             output = model(x)
             loss = criterion(output, y)
             pred = output.argmax(dim=1, keepdim=True)
@@ -58,6 +61,8 @@ def test(cfg, model, logger, writer, metrics, tid_done):
         avg_meter.reset()
         for idx, data in enumerate(test_loader):
             x, y = data
+            x = x.to(device)
+            y = y.to(device)
             output = model(x)
             test_loss = criterion(output, y)
             pred = output.argmax(dim=1, keepdim=True)
@@ -87,6 +92,7 @@ if __name__ == "__main__":
     metrics = Metrics(cfg.SOLVER.NUM_TASKS)
 
     model = Model(cfg.MODEL.MLP.INPUT_SIZE, cfg.MODEL.MLP.HIDDEN_SIZE, cfg.MODEL.MLP.OUTPUT_SIZE)
+    model = model.to(device)
     for tid in range(cfg.SOLVER.NUM_TASKS):
         train_loader = get_loader(cfg, True, tid)
         train(cfg, model, train_loader, tid, logger, writer, metrics)
