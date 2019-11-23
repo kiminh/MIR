@@ -30,12 +30,13 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
     avg_loss = AverageMeter()
     batch_size = cfg.SOLVER.BATCH_SIZE
     num_batches = cfg.DATA.TRAIN.NUM_SAMPLES // batch_size
-    optimizer = optim.SGD(model.parameters(), lr = cfg.OPTIMIZER.LR, momentum = cfg.OPTIMIZER.MOMENTUM)
+    optimizer = optim.SGD(model.parameters(), lr = cfg.OPTIMIZER.LR)
     acc = 0.0
     for epoch_idx in range(0, cfg.SOLVER.NUM_EPOCHS):
         for batch_idx, data in enumerate(train_loader):
             writer_idx = batch_idx * batch_size + (epoch_idx * num_batches * batch_size)
             x, y = data
+            x_orig, y_orig = x.clone(), y.clone()
             x = x.view(min(x.shape[0], cfg.SOLVER.BATCH_SIZE), -1)
             sampled_mem = mem.sample()
             if sampled_mem is not None:
@@ -51,7 +52,7 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            mem.fill(x, y, tid=tid)
+            mem.fill(x_orig, y_orig, tid=tid)
             writer.add_scalar(f'loss-{tid}', loss, writer_idx)
             mem.num_seen += batch_size
             if batch_idx % cfg.SYSTEM.LOG_FREQ==0:
