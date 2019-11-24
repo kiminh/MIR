@@ -1,0 +1,17 @@
+SYSTEM:
+  EXP_NAME: 'cifar-fine-tuning'
+  SEED: 20
+DATA:
+  TYPE: 'cifar-10'
+  TRAIN:
+    ROOT: './torch_data/cifar10/train.pt'
+    NUM_SAMPLES: 9750
+  TEST:
+    ROOT: './torch_data/cifar10/test.pt'
+SOLVER:
+  NUM_TASKS: 5
+  BATCH_SIZE: 50
+  NUM_EPOCHS: 1
+OPTIMIZER:
+  LR: 0.1
+  MOMENTUM: 0.09
