@@ -12,6 +12,7 @@ _C.SYSTEM.LOG_FREQ = 100
 
 # Dataset
 _C.DATA = CN()
+_C.DATA.TYPE = 'mnist'
 _C.DATA.ROOT = './torch_data/mnist/'
 _C.DATA.SAVE_FILE = './torch_data/mnist/split/'
 _C.DATA.NUM_CLASSES = 10

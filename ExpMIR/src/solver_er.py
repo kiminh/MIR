@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from config import cfg
 from data import get_loader
 from memory_buffer import Buffer
-from model import Model
+from model import Model, get_model
 from utils.logger import setup_logger
 from utils.loss import BCEauto
 from utils.utils import AverageMeter, save_config
@@ -27,7 +27,7 @@ def get_counts(mem):
     return dict(zip(unique, counts))
 
 def get_counts_labels(y):
-    y = y.numpy()
+    y = y.cpu().numpy()
     unique, counts = np.unique(y, return_counts=True)
     return dict(zip(unique, counts))
 
@@ -109,8 +109,10 @@ if __name__ == "__main__":
     logger = setup_logger(cfg.SYSTEM.EXP_NAME, os.path.join(cfg.SYSTEM.SAVE_DIR, cfg.SYSTEM.EXP_NAME), 0)
     writer = SummaryWriter(log_dir)
     metrics = Metrics(cfg.SOLVER.NUM_TASKS)
-
-    model = Model(cfg.MODEL.MLP.INPUT_SIZE, cfg.MODEL.MLP.HIDDEN_SIZE, cfg.MODEL.MLP.OUTPUT_SIZE)
+    if cfg.DATA.TYPE == 'mnist':
+        model = get_model('mlp', input_size = cfg.MODEL.MLP.INPUT_SIZE, hidden_size = cfg.MODEL.MLP.HIDDEN_SIZE, out_size = cfg.MODEL.MLP.OUTPUT_SIZE)
+    elif cfg.DATA.TYPE == 'cifar':
+        model = get_model('resnet', n_cls = cfg.DATA.NUM_CLASSES)
     model.to(device)
     mem = Buffer(cfg)
     for tid in range(cfg.SOLVER.NUM_TASKS):

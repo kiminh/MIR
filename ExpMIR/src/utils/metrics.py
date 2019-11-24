@@ -5,6 +5,7 @@ class Metrics:
     def __init__(self, num_tasks):
         self.acc = np.zeros((num_tasks, num_tasks))
         self.forget = np.zeros((num_tasks, num_tasks))
+        self.temp = []
 
     def accuracy(self, tid, tid_done, pred, y):
         self.acc[tid_done, tid]+=pred.eq(y.view_as(pred)).sum().item()

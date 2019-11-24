@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from config import cfg
 from data import get_loader
 from memory_buffer import Buffer
-from model import Model
+from model import Model, get_model
 from utils.logger import setup_logger
 from utils.loss import BCEauto
 from utils.utils import AverageMeter, save_config
@@ -90,8 +90,11 @@ if __name__ == "__main__":
     logger = setup_logger(cfg.SYSTEM.EXP_NAME, os.path.join(cfg.SYSTEM.SAVE_DIR, cfg.SYSTEM.EXP_NAME), 0)
     writer = SummaryWriter(log_dir)
     metrics = Metrics(cfg.SOLVER.NUM_TASKS)
+    if cfg.DATA.TYPE == 'mnist':
+        model = get_model(type='mlp', input_size=cfg.MODEL.MLP.INPUT_SIZE, hidden_size=cfg.MODEL.MLP.HIDDEN_SIZE, out_size=cfg.MODEL.MLP.OUTPUT_SIZE)
+    elif cfg.DATA.TYPE == 'cifar-10':
+        model = get_model(type='resnet', n_cls=cfg.DATA.NUM_CLASSES)
 
-    model = Model(cfg.MODEL.MLP.INPUT_SIZE, cfg.MODEL.MLP.HIDDEN_SIZE, cfg.MODEL.MLP.OUTPUT_SIZE)
     model = model.to(device)
     for tid in range(cfg.SOLVER.NUM_TASKS):
         train_loader = get_loader(cfg, True, tid)
