@@ -33,6 +33,9 @@ def save_cifar_dataset():
         train_data[tid] = (x_tr[idx_tr], y_tr[idx_tr])
         test_data[tid] = (x_te[idx_te], y_te[idx_te])
 
+    if not os.path.exists(cfg.DATA.SAVE_FILE):
+        os.mkdir(cfg.DATA.SAVE_FILE)
+
     torch.save(train_data, cfg.DATA.SAVE_FILE + 'train.pt')
     torch.save(test_data, cfg.DATA.SAVE_FILE + 'test.pt')
 
@@ -55,6 +58,9 @@ def save_permuted_dataset():
         p = torch.randperm(x_tr.size(-1)).long()
         train_data[tid] = (x_tr[:, p], y_tr)
         test_data[tid] = (x_te[:, p], y_te)
+
+    if not os.path.exists(cfg.DATA.SAVE_FILE):
+        os.mkdir(cfg.DATA.SAVE_FILE)
 
     torch.save(train_data, cfg.DATA.SAVE_FILE + 'train.pt')
     torch.save(train_data, cfg.DATA.SAVE_FILE + 'test.pt')
@@ -83,7 +89,8 @@ def save_split_dataset():
             idx_te.extend(torch.nonzero(y_te==cid).view(-1))
         train_data[tid] = (x_tr[idx_tr], y_tr[idx_tr])
         test_data[tid] = (x_te[idx_te], y_te[idx_te])
-
+    if not os.path.exists(cfg.DATA.SAVE_FILE):
+        os.mkdir(cfg.DATA.SAVE_FILE)
     torch.save(train_data, cfg.DATA.SAVE_FILE + 'train.pt')
     torch.save(test_data, cfg.DATA.SAVE_FILE + 'test.pt')
 
