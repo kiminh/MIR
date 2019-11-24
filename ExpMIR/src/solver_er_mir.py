@@ -2,8 +2,8 @@
 import argparse
 import logging
 import os
-import numpy as np
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -12,11 +12,11 @@ from torch.utils.tensorboard import SummaryWriter
 from config import cfg
 from data import get_loader
 from memory_buffer import Buffer
-from model import Model, get_model
+from model import Model
 from utils.logger import setup_logger
 from utils.loss import BCEauto
-from utils.utils import AverageMeter, save_config
 from utils.metrics import Metrics
+from utils.utils import AverageMeter, save_config
 
 device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
 
@@ -27,51 +27,87 @@ def get_counts(mem):
     return dict(zip(unique, counts))
 
 def get_counts_labels(y):
-    y = y.cpu().numpy()
+    y = y.numpy()
     unique, counts = np.unique(y, return_counts=True)
     return dict(zip(unique, counts))
 
+def update_virtual(model, optimizer, loss):
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+def restore_model(model, params):
+    model.load_state_dict(params)
+
 def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
-    criterion =  torch.nn.CrossEntropyLoss()
+    criterion_avg =  torch.nn.CrossEntropyLoss()
+    criterion_per_item = torch.nn.CrossEntropyLoss(reduction='none')
     avg_loss = AverageMeter()
     batch_size = cfg.SOLVER.BATCH_SIZE
     num_batches = cfg.DATA.TRAIN.NUM_SAMPLES // batch_size
-    optimizer = optim.SGD(model.parameters(), lr = cfg.OPTIMIZER.LR)
+    optimizer = optim.SGD(model.parameters(), lr = cfg.OPTIMIZER.LR, momentum = cfg.OPTIMIZER.MOMENTUM)
     acc = 0.0
     for epoch_idx in range(0, cfg.SOLVER.NUM_EPOCHS):
         for batch_idx, data in enumerate(train_loader):
             writer_idx = batch_idx * batch_size + (epoch_idx * num_batches * batch_size)
             x, y = data
-            x_orig, y_orig = x.clone(), y.clone()
-            x = x.view(min(x.shape[0], cfg.SOLVER.BATCH_SIZE), -1)
-            sampled_mem = mem.sample()
-            if sampled_mem is not None:
-                x_c = torch.stack([x[0] for x in sampled_mem])
-                y_c = torch.stack([x[1] for x in sampled_mem])
-                x, y = torch.cat((x, x_c)), torch.cat((y, torch.squeeze(y_c)))
             x = x.to(device)
             y = y.to(device)
-            output = model(x)
-            loss = criterion(output, y)
+            x_orig, y_orig = x.clone(), y.clone()
+            # Safe gaurading against for incomplete batches
+            x = x.view(min(x.shape[0], cfg.SOLVER.BATCH_SIZE), -1)
+            params = model.state_dict()
+            # Random sampled C items
+            sampled_mem, loss = mem.sample()
+            if sampled_mem is not None:
+                x_c = torch.stack([x[0] for x in sampled_mem]).to(device)
+                y_c = torch.stack([x[1] for x in sampled_mem]).to(device)
+                if cfg.SOLVER.SAMPLING_CRITERION == 2 and not loss == -1:
+                    best_loss_per_item = torch.tensor(loss)
+                # loss for sampled before virtual updates
+                output = model(x_c)
+                y_c = torch.squeeze(y_c)
+                loss_per_item = criterion_per_item(output, y_c)
+                loss_mean = criterion_avg(output, y_c)
+
+                # Virtual Update
+                update_virtual(model, optimizer, loss_mean)
+
+                # loss for sampled after virtual updates
+                output = model(x_c)
+                virt_loss_per_item = criterion_per_item(output, y_c)
+                if cfg.SOLVER.SAMPLING_CRITERION == 1:
+                    _, bc_idx = torch.topk(virt_loss_per_item - loss_per_item, cfg.SOLVER.BUDGET)
+                elif cfg.SOLVER.SAMPLING_CRITERION == 2:
+                    _, bc_idx = torch.topk(virt_loss_per_item - torch.min(loss_per_item, best_loss_per_item), cfg.SOLVER.BUDGET)
+                # Restore Model
+                restore_model(model, params)
+                x_union, y_union= torch.cat((x, x_c[bc_idx])), torch.cat((y, torch.squeeze(y_c[bc_idx])))
+            else:
+                x_union, y_union= x, y
+
+            output = model(x_union)
+            loss_mean= criterion_avg(output, y_union)
             pred = output.argmax(dim=1, keepdim=True)
-            acc += pred.eq(y.view_as(pred)).sum().item() / x.shape[0]
-            avg_loss.update(loss)
+            acc += pred.eq(y_union.view_as(pred)).sum().item() / x_union.shape[0]
+            avg_loss.update(loss_mean)
             optimizer.zero_grad()
-            loss.backward()
+            loss_mean.backward()
             optimizer.step()
-            mem.fill(x_orig, y_orig, tid=tid)
-            writer.add_scalar(f'loss-{tid}', loss, writer_idx)
+            # import ipdb; ipdb.set_trace()
+            loss_per_item = criterion_per_item(model(x_orig), y_orig)
+            mem.fill(x, y, loss_per_item, tid)
+            writer.add_scalar(f'loss-{tid}', loss_mean, writer_idx)
             mem.num_seen += batch_size
             if batch_idx % cfg.SYSTEM.LOG_FREQ==0:
                 logger.debug(f'Batch Id:{batch_idx}, Average Loss:{avg_loss.avg}')
-                print(f'Labels: {get_counts_labels(y)},\
+                print(f'Labels: {get_counts_labels(y_union)},\
                         Memory: {get_counts(mem.memory)},\
                         Eff Size: {mem.eff_size},\
                         Memory Size: {len(mem.memory)},\
                         Num Seen:{mem.num_seen}')
         logger.info(f'Task Id:{tid}, Acc:{acc/len(train_loader)}')
     test(cfg, model, logger, writer, metrics, tid)
-
 
 def test(cfg, model, logger, writer, metrics, tid_done):
     model.eval()
@@ -82,8 +118,6 @@ def test(cfg, model, logger, writer, metrics, tid_done):
         avg_meter.reset()
         for idx, data in enumerate(test_loader):
             x, y = data
-            x = x.to(device)
-            y = y.to(device)
             output = model(x)
             test_loss = criterion(output, y)
             pred = output.argmax(dim=1, keepdim=True)
@@ -109,14 +143,12 @@ if __name__ == "__main__":
     logger = setup_logger(cfg.SYSTEM.EXP_NAME, os.path.join(cfg.SYSTEM.SAVE_DIR, cfg.SYSTEM.EXP_NAME), 0)
     writer = SummaryWriter(log_dir)
     metrics = Metrics(cfg.SOLVER.NUM_TASKS)
-    if cfg.DATA.TYPE == 'mnist':
-        model = get_model('mlp', input_size = cfg.MODEL.MLP.INPUT_SIZE, hidden_size = cfg.MODEL.MLP.HIDDEN_SIZE, out_size = cfg.MODEL.MLP.OUTPUT_SIZE)
-    elif cfg.DATA.TYPE == 'cifar':
-        model = get_model('resnet', n_cls = cfg.DATA.NUM_CLASSES)
-    model.to(device)
+
+    model = Model(cfg.MODEL.MLP.INPUT_SIZE, cfg.MODEL.MLP.HIDDEN_SIZE, cfg.MODEL.MLP.OUTPUT_SIZE)
     mem = Buffer(cfg)
     for tid in range(cfg.SOLVER.NUM_TASKS):
         train_loader = get_loader(cfg, True, tid)
+        print(torch.unique(train_loader.dataset.targets))
         train(cfg, model, train_loader, tid, mem, logger, writer, metrics)
     logger.info(f'Avg Acc:{metrics.acc_task(cfg.SOLVER.NUM_TASKS-1)},\
                   Avg Forgetting:{metrics.forgetting_task(cfg.SOLVER.NUM_TASKS-1)}')
