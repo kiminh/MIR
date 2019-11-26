@@ -6,21 +6,19 @@ from operator import itemgetter
 import torch
 
 class Buffer:
-    def __init__(self, cfg, dataset):
+    def __init__(self, cfg):
         self.size = cfg.BUFFER.SIZE
         self.C = cfg.BUFFER.C
         self.memory = []
-        self.loss = defaultdict(lambda:1e+6)
+        self.loss = []
         self.num_seen = 0
         self.num_tasks = cfg.SOLVER.NUM_TASKS
         self.num_cls = cfg.DATA.NUM_CLASSES
-        self.dataset = dataset
 
-    def fill(self, x, y, loss=None, tid=None):
+    def fill(self, x, y, use_loss=False, loss=None, tid=None):
         """
         Reservoir Sampling for selecting which tensor make it
-        into the memory buffer. Here we use id function for
-        hashing tensor. See https://github.com/pytorch/pytorch/pull/10625
+        into the memory buffer. Check Notes for explanation
         # TODO: Check the speed of this function
         Args
         ---
@@ -31,20 +29,18 @@ class Buffer:
         if tid is not None:
             mult = self.num_cls / self.num_tasks
             self.eff_size = (tid+1) * int(mult*(self.size / (self.num_cls)))
-        if not len(loss) == 0:
+        if use_loss:
             loss = loss.detach()
         for i in range(0, x.shape[0]):
             if len(self.memory) < self.eff_size:
                 self.memory.append((x[i], y[i]))
-                if not len(loss) == 0:
-                    self.loss[x[i]] = min(self.loss[x[i]], loss[i])
+                if use_loss and not len(loss) == 0:
+                    self.loss.append(loss[i])
             else:
                 if np.random.randint(0, self.num_seen + i) < len(self.memory):
                     self.memory[i] = (x[i], y[i])
-                    if not len(loss) == 0:
-                        self.loss[x[i]] = min(self.loss[x[i]], loss[i])
-                    import ipdb; ipdb.set_trace()
-                    print(loss[i], self.loss[x[i]])
+                    if use_loss and not len(loss) == 0:
+                        self.loss[i] = min(self.loss[i], loss[i])
             # self.num_seen += 1
 
     def sample(self):
