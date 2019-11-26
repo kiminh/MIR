@@ -31,7 +31,7 @@ def get_counts_labels(y):
     unique, counts = np.unique(y, return_counts=True)
     return dict(zip(unique, counts))
 
-def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
+def train(cfg, model, train_loader, tid, mem, logger, writer, metrics, num_iter=1):
     criterion =  torch.nn.CrossEntropyLoss()
     avg_loss = AverageMeter()
     batch_size = cfg.SOLVER.BATCH_SIZE
@@ -40,25 +40,26 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
     acc = 0.0
     for epoch_idx in range(0, cfg.SOLVER.NUM_EPOCHS):
         for batch_idx, data in enumerate(train_loader):
-            writer_idx = batch_idx * batch_size + (epoch_idx * num_batches * batch_size)
-            x, y = data
-            x_orig, y_orig = x.clone(), y.clone()
-            x = x.view(min(x.shape[0], cfg.SOLVER.BATCH_SIZE), -1)
-            sampled_mem, _ = mem.sample()
-            if sampled_mem is not None:
-                x_c = torch.stack([x[0] for x in sampled_mem])
-                y_c = torch.stack([x[1] for x in sampled_mem])
-                x, y = torch.cat((x, x_c)), torch.cat((y, torch.squeeze(y_c)))
-            x = x.to(device)
-            y = y.to(device)
-            output = model(x)
-            loss = criterion(output, y)
-            pred = output.argmax(dim=1, keepdim=True)
-            acc += pred.eq(y.view_as(pred)).sum().item() / x.shape[0]
-            avg_loss.update(loss)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            for _ in range(num_iter):
+                writer_idx = batch_idx * batch_size + (epoch_idx * num_batches * batch_size)
+                x, y = data
+                x_orig, y_orig = x.clone(), y.clone()
+                x = x.view(min(x.shape[0], cfg.SOLVER.BATCH_SIZE), -1)
+                sampled_mem, _ = mem.sample()
+                if sampled_mem is not None:
+                    x_c = torch.stack([x[0] for x in sampled_mem])
+                    y_c = torch.stack([x[1] for x in sampled_mem])
+                    x, y = torch.cat((x, x_c)), torch.cat((y, torch.squeeze(y_c)))
+                x = x.to(device)
+                y = y.to(device)
+                output = model(x)
+                loss = criterion(output, y)
+                pred = output.argmax(dim=1, keepdim=True)
+                acc += pred.eq(y.view_as(pred)).sum().item() / x.shape[0]
+                avg_loss.update(loss)
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
             mem.fill(x_orig, y_orig, tid=tid)
             writer.add_scalar(f'loss-{tid}', loss, writer_idx)
             mem.num_seen += batch_size
