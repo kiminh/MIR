@@ -44,7 +44,7 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
             x, y = data
             x_orig, y_orig = x.clone(), y.clone()
             x = x.view(min(x.shape[0], cfg.SOLVER.BATCH_SIZE), -1)
-            sampled_mem = mem.sample()
+            sampled_mem, _ = mem.sample()
             if sampled_mem is not None:
                 x_c = torch.stack([x[0] for x in sampled_mem])
                 y_c = torch.stack([x[1] for x in sampled_mem])
