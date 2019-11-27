@@ -55,7 +55,8 @@ def save_permuted_dataset():
     for tid in tqdm.tqdm(range(cfg.SOLVER.NUM_TASKS), total=cfg.SOLVER.NUM_TASKS):
         if tid==0:
             p = torch.arange(x_tr.size(-1))
-        p = torch.randperm(x_tr.size(-1)).long()
+        else:
+            p = torch.randperm(x_tr.size(-1)).long()
         train_data[tid] = (x_tr[:, p], y_tr)
         test_data[tid] = (x_te[:, p], y_te)
 
