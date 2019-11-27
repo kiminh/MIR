@@ -28,17 +28,18 @@ class Buffer:
         """
         if tid is not None:
             mult = self.num_cls / self.num_tasks
-            self.eff_size = (tid+1) * int(mult*(self.size / (self.num_cls)))
+            self.eff_size = (tid+1) * int(mult * self.size / self.num_cls)
         if use_loss:
             loss = loss.detach()
         for i in range(0, x.shape[0]):
-            if len(self.memory) < self.eff_size:
+            if len(self.memory) < self.size:
                 self.memory.append((x[i], y[i]))
                 if use_loss and not len(loss) == 0:
                     self.loss.append(loss[i])
             else:
-                if np.random.randint(0, self.num_seen + i) < len(self.memory):
-                    self.memory[i] = (x[i], y[i])
+                loc = np.random.randint(0, self.num_seen + i)
+                if loc < len(self.memory):
+                    self.memory[loc] = (x[i], y[i])
                     if use_loss and not len(loss) == 0:
                         self.loss[i] = min(self.loss[i], loss[i])
             # self.num_seen += 1
@@ -51,9 +52,8 @@ class Buffer:
         if len(self.loss)==0:
             return (mem_sampled, -1)
         else:
-            loss_keys = [id(x) for x in mem_sampled]
-            loss_val = list(itemgetter(*loss_keys)(self.loss))
-            return (mem_sampled, loss_val)
+            loss = [self.loss[i] for i in idx]
+            return (mem_sampled, loss)
 
     def reset(self):
         self.memory = []
