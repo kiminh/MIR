@@ -17,19 +17,9 @@ from utils.logger import setup_logger
 from utils.loss import BCEauto
 from utils.metrics import Metrics
 from utils.utils import AverageMeter, save_config, set_seed
+from utils.basic import get_counts, get_counts_labels
 
 device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
-
-def get_counts(mem):
-    y = [y for x, y in mem]
-    y = np.array(y)
-    unique, counts = np.unique(y, return_counts=True)
-    return dict(zip(unique, counts))
-
-def get_counts_labels(y):
-    y = y.numpy()
-    unique, counts = np.unique(y, return_counts=True)
-    return dict(zip(unique, counts))
 
 def update_virtual(model, optimizer, loss):
     optimizer.zero_grad()

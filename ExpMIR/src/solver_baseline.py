@@ -13,6 +13,7 @@ from config import cfg
 from data import get_loader
 from memory_buffer import Buffer
 from model import Model, get_model
+from utils.basic import get_counts_labels
 from utils.logger import setup_logger
 from utils.loss import BCEauto
 from utils.utils import AverageMeter, save_config
