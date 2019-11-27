@@ -15,7 +15,7 @@ from memory_buffer import Buffer
 from model import Model, get_model
 from utils.logger import setup_logger
 from utils.loss import BCEauto
-from utils.utils import AverageMeter, save_config
+from utils.utils import AverageMeter, save_config, set_seed
 from utils.metrics import Metrics
 
 device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
@@ -106,6 +106,7 @@ if __name__ == "__main__":
     cfg.merge_from_list(args.opts)
     cfg.freeze()
 
+    set_seed(cfg)
     log_dir, chkpt_dir = save_config(cfg.SYSTEM.SAVE_DIR, cfg, args.clean_run)
     logger = setup_logger(cfg.SYSTEM.EXP_NAME, os.path.join(cfg.SYSTEM.SAVE_DIR, cfg.SYSTEM.EXP_NAME), 0)
     writer = SummaryWriter(log_dir)
