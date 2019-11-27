@@ -17,8 +17,11 @@ class ContinualDataset(Dataset):
             self.n_samples = cfg.DATA.TRAIN.NUM_SAMPLES
         else:
             self.path = cfg.DATA.TEST.ROOT
-            self.n_samples = -1 # Using all test data
+            self.n_samples = cfg.DATA.TRAIN.NUM_SAMPLES
         self.data, self.targets = torch.load(self.path)[tid]
+        idx = torch.randperm(self.data.shape[0])
+        self.data = self.data[idx]
+        self.targets = self.targets[idx]
         self.tid = tid
         self.transform = transform
         self.target_transform = target_transform
@@ -36,7 +39,7 @@ class ContinualDataset(Dataset):
 
     def __len__(self):
         if self.n_samples > 0:
-            return self.cfg.DATA.TRAIN.NUM_SAMPLES * (self.cfg.DATA.NUM_CLASSES // self.cfg.SOLVER.NUM_TASKS)
+            return min(len(self.data), self.n_samples)
         else:
             return len(self.data)
 
