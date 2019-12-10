@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from config import cfg
 from data import get_loader
 from memory_buffer import Buffer
-from model import Model
+from model import Model, get_model
 from utils.logger import setup_logger
 from utils.loss import BCEauto
 from utils.metrics import Metrics
@@ -30,6 +30,7 @@ def restore_model(model, params):
     model.load_state_dict(params)
 
 def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
+    model.train()
     criterion_avg =  torch.nn.CrossEntropyLoss()
     criterion_per_item = torch.nn.CrossEntropyLoss(reduction='none')
     avg_loss = AverageMeter()
@@ -53,7 +54,7 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
                 x_c = torch.stack([x[0] for x in sampled_mem]).to(device)
                 y_c = torch.stack([x[1] for x in sampled_mem]).to(device)
                 if cfg.SOLVER.SAMPLING_CRITERION == 2 and not loss == -1:
-                    best_loss_per_item = torch.tensor(loss)
+                    best_loss_per_item = torch.tensor(loss).to(device)
                 # loss for sampled before virtual updates
                 output = model(x_c)
                 y_c = torch.squeeze(y_c)
@@ -67,15 +68,14 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
                 output = model(x_c)
                 virt_loss_per_item = criterion_per_item(output, y_c)
                 if cfg.SOLVER.SAMPLING_CRITERION == 1:
-                    _, bc_idx = torch.topk(virt_loss_per_item - loss_per_item, cfg.SOLVER.BUDGET)
+                    _, bc_idx = torch.topk(virt_loss_per_item - loss_per_item, cfg.SOLVER.BATCH_SIZE)
                 elif cfg.SOLVER.SAMPLING_CRITERION == 2:
-                    _, bc_idx = torch.topk(virt_loss_per_item - torch.min(loss_per_item, best_loss_per_item), cfg.SOLVER.BUDGET)
+                    _, bc_idx = torch.topk(virt_loss_per_item - torch.min(loss_per_item, best_loss_per_item), cfg.SOLVER.BATCH_SIZE)
                 # Restore Model
                 restore_model(model, params)
                 x_union, y_union= torch.cat((x, x_c[bc_idx])), torch.cat((y, torch.squeeze(y_c[bc_idx])))
             else:
                 x_union, y_union= x, y
-
             output = model(x_union)
             loss_mean= criterion_avg(output, y_union)
             pred = output.argmax(dim=1, keepdim=True)
@@ -86,7 +86,7 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics):
             optimizer.step()
             # import ipdb; ipdb.set_trace()
             loss_per_item = criterion_per_item(model(x_orig), y_orig)
-            mem.fill(x, y, loss_per_item, tid)
+            mem.fill(x, y, use_loss=True, loss=loss_per_item, tid=tid)
             writer.add_scalar(f'loss-{tid}', loss_mean, writer_idx)
             mem.num_seen += batch_size
             if batch_idx % cfg.SYSTEM.LOG_FREQ==0:
@@ -108,6 +108,8 @@ def test(cfg, model, logger, writer, metrics, tid_done):
         avg_meter.reset()
         for idx, data in enumerate(test_loader):
             x, y = data
+            x = x.to(device)
+            y = y.to(device)
             output = model(x)
             test_loss = criterion(output, y)
             pred = output.argmax(dim=1, keepdim=True)
@@ -134,8 +136,11 @@ if __name__ == "__main__":
     logger = setup_logger(cfg.SYSTEM.EXP_NAME, os.path.join(cfg.SYSTEM.SAVE_DIR, cfg.SYSTEM.EXP_NAME), 0)
     writer = SummaryWriter(log_dir)
     metrics = Metrics(cfg.SOLVER.NUM_TASKS)
-
-    model = Model(cfg.MODEL.MLP.INPUT_SIZE, cfg.MODEL.MLP.HIDDEN_SIZE, cfg.MODEL.MLP.OUTPUT_SIZE)
+    if cfg.DATA.TYPE == 'mnist':
+        model = get_model(type='mlp', input_size=cfg.MODEL.MLP.INPUT_SIZE, hidden_size=cfg.MODEL.MLP.HIDDEN_SIZE, out_size=cfg.MODEL.MLP.OUTPUT_SIZE)
+    elif cfg.DATA.TYPE == 'cifar':
+        model = get_model(type='resnet', n_cls=cfg.DATA.NUM_CLASSES)
+    model.to(device)
     mem = Buffer(cfg)
     for tid in range(cfg.SOLVER.NUM_TASKS):
         train_loader = get_loader(cfg, True, tid)

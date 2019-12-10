@@ -1,7 +1,7 @@
 SYSTEM:
-  EXP_NAME: 'cifar-er'
+  EXP_NAME: 'cifar-er-mir'
   SEED: 43
-  LOG_FREQ: 100
+  LOG_FREQ: 10
 DATA:
   TYPE: 'cifar'
   TRAIN:
@@ -14,9 +14,10 @@ SOLVER:
   NUM_TASKS: 5
   BATCH_SIZE: 50
   NUM_EPOCHS: 1
+  SAMPLING_CRITERION: 1
 OPTIMIZER:
   LR: 0.1
-  MOMENTUM: 0.00
+  MOMENTUM: 0.0
 BUFFER:
   SIZE: 500
   C: 50

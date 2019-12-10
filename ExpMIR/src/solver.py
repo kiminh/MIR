@@ -45,7 +45,7 @@ def train_one_epoch(cfg, model, train_loader, optimizer, mem, logger):
             update_virtual(model, optimizer, loss_mean)
             pred = model(x_c)
             virt_loss_per_item = torch.mean(criterion_per_item(pred, y_c), axis=1)
-            _, bc_idx = torch.topk(virt_loss_per_item - loss_per_item, cfg.SOLVER.BUDGET)
+            _, bc_idx = torch.topk(virt_loss_per_item - loss_per_item, cfg.SOLVER.BATCH_SIZE)
             # Restore Model
             restore_model(model, params)
             x_union, y_union= torch.cat((x, x_c[bc_idx])), torch.cat((y, y_c[bc_idx]))

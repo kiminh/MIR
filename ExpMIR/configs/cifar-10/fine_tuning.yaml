@@ -2,7 +2,7 @@ SYSTEM:
   EXP_NAME: 'cifar-fine-tuning'
   SEED: 20
 DATA:
-  TYPE: 'cifar-10'
+  TYPE: 'cifar'
   TRAIN:
     ROOT: './torch_data/cifar10/train.pt'
     NUM_SAMPLES: 9750

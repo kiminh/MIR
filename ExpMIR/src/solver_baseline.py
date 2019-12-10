@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import logging
 import argparse
+import logging
 import os
 
 import torch
@@ -16,7 +16,6 @@ from model import Model, get_model
 from utils.basic import get_counts_labels
 from utils.logger import setup_logger
 from utils.loss import BCEauto
-from utils.utils import AverageMeter, save_config
 from utils.metrics import Metrics
 from utils.utils import AverageMeter, save_config, set_seed
 
@@ -49,6 +48,7 @@ def train(cfg, model, train_loader, tid, logger, writer, metrics):
             writer.add_scalar(f'loss-{tid}', loss, writer_idx)
             if batch_idx % cfg.SYSTEM.LOG_FREQ==0:
                 logger.debug(f'Batch Id:{batch_idx}, Average Loss:{avg_loss.avg}')
+                print(f'Labels Y : {get_counts_labels(y)}')
     logger.info(f'Task Id:{tid}, Acc:{acc/len(train_loader.dataset)}')
     test(cfg, model, logger, writer, metrics, tid)
 
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     metrics = Metrics(cfg.SOLVER.NUM_TASKS)
     if cfg.DATA.TYPE == 'mnist':
         model = get_model(type='mlp', input_size=cfg.MODEL.MLP.INPUT_SIZE, hidden_size=cfg.MODEL.MLP.HIDDEN_SIZE, out_size=cfg.MODEL.MLP.OUTPUT_SIZE)
-    elif cfg.DATA.TYPE == 'cifar-10':
+    elif cfg.DATA.TYPE == 'cifar':
         model = get_model(type='resnet', n_cls=cfg.DATA.NUM_CLASSES)
 
     model = model.to(device)

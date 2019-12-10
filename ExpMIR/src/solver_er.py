@@ -23,6 +23,7 @@ device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
 
 
 def train(cfg, model, train_loader, tid, mem, logger, writer, metrics, num_iter=1):
+    model.train()
     criterion =  torch.nn.CrossEntropyLoss()
     avg_loss = AverageMeter()
     batch_size = cfg.SOLVER.BATCH_SIZE
@@ -34,17 +35,19 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics, num_iter=
             for _ in range(num_iter):
                 writer_idx = batch_idx * batch_size + (epoch_idx * num_batches * batch_size)
                 x, y = data
-                x_orig, y_orig = x.clone(), y.clone()
+                x_orig, y_orig = x, y
                 x = x.view(min(x.shape[0], cfg.SOLVER.BATCH_SIZE), -1)
                 sampled_mem, _ = mem.sample()
                 if sampled_mem is not None:
                     x_c = torch.stack([x[0] for x in sampled_mem])
                     y_c = torch.stack([x[1] for x in sampled_mem])
-                    x, y = torch.cat((x, x_c)), torch.cat((y, torch.squeeze(y_c)))
+                    x, y = torch.cat((x, x_c)), torch.cat((y, y_c))
                 x = x.to(device)
                 y = y.to(device)
                 output = model(x)
                 loss = criterion(output, y)
+                # if torch.isnan(loss):
+                #     import ipdb; ipdb.set_trace()
                 pred = output.argmax(dim=1, keepdim=True)
                 acc += pred.eq(y.view_as(pred)).sum().item() / x.shape[0]
                 avg_loss.update(loss)
@@ -55,12 +58,12 @@ def train(cfg, model, train_loader, tid, mem, logger, writer, metrics, num_iter=
             writer.add_scalar(f'loss-{tid}', loss, writer_idx)
             mem.num_seen += batch_size
             if batch_idx % cfg.SYSTEM.LOG_FREQ==0:
-                logger.debug(f'Batch Id:{batch_idx}, Average Loss:{avg_loss.avg}')
-                print(f'Labels: {get_counts_labels(y)},\
-                        Memory: {get_counts(mem.memory)},\
-                        Eff Size: {mem.eff_size},\
-                        Memory Size: {len(mem.memory)},\
-                        Num Seen:{mem.num_seen}')
+                logger.debug(f'Batch Id:{batch_idx}, Loss:{loss}, Average Loss:{avg_loss.avg}')
+                print(f'Labels Y : {get_counts_labels(y)},\
+                    Memory: {get_counts(mem.memory)},\
+                    Eff Size: {mem.eff_size},\
+                    Memory Size: {len(mem.memory)},\
+                    Num Seen:{mem.num_seen}')
         logger.info(f'Task Id:{tid}, Acc:{acc/len(train_loader)}')
     test(cfg, model, logger, writer, metrics, tid)
 

@@ -1,7 +1,13 @@
 SYSTEM:
-  EXP_NAME: 'split-er-mir'
+  EXP_NAME: 'permute-er-mir'
   SEED: 43
   LOG_FREQ: 10
+DATA:
+  TRAIN:
+    ROOT: './torch_data/mnist/permute/train.pt'
+    NUM_SAMPLES: 1000
+  TEST:
+    ROOT: './torch_data/mnist/permute/test.pt'
 SOLVER:
   NUM_TASKS: 5
   BATCH_SIZE: 10

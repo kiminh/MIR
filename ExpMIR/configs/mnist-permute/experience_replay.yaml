@@ -5,6 +5,7 @@ SYSTEM:
 DATA:
   TRAIN:
     ROOT: './torch_data/mnist/permute/train.pt'
+    NUM_SAMPLES: 1000
   TEST:
     ROOT: './torch_data/mnist/permute/test.pt'
 SOLVER:
@@ -13,7 +14,7 @@ SOLVER:
   NUM_EPOCHS: 1
 OPTIMIZER:
   LR: 0.05
-  MOMENTUM: 0.09
+  MOMENTUM: 0.00
 BUFFER:
   SIZE: 500
   C: 10
